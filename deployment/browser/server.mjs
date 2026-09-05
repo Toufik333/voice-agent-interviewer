@@ -10,7 +10,9 @@ import { aai, loadEnv, publishAgent, readAgent, required, storedAgentId } from '
 import { generateInterviewReport } from './report-generator.mjs'
 
 loadEnv()
-required('ASSEMBLYAI_API_KEY', 'get one at https://www.assemblyai.com/dashboard/api-keys')
+if (!process.env.ASSEMBLYAI_API_KEY && !process.env.VERCEL) {
+  required('ASSEMBLYAI_API_KEY', 'get one at https://www.assemblyai.com/dashboard/api-keys')
+}
 
 // Role Catalog Definition (Junior / Entry-Level Fresh Graduate Focused)
 const ROLES = {
@@ -114,7 +116,9 @@ async function getRoleAgentId(roleKey) {
 }
 
 // Pre-warm default role
-getRoleAgentId('backend').catch(() => {})
+if (process.env.ASSEMBLYAI_API_KEY) {
+  getRoleAgentId('backend').catch(() => {})
+}
 
 // --- Client Application Code -----------------------------------------------
 function clientApp() {
@@ -670,7 +674,19 @@ function clientApp() {
     const copyBtn = $('copy-report-btn')
 
     downloadBtn.onclick = () => {
-      window.location.href = `/reports/${encodeURIComponent(rep.fileName)}`
+      if (rep.markdown) {
+        const blob = new Blob([rep.markdown], { type: 'text/markdown;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = rep.fileName || 'interview-report.md'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      } else {
+        window.location.href = `/reports/${encodeURIComponent(rep.fileName)}`
+      }
     }
 
     copyBtn.onclick = () => {
@@ -1911,9 +1927,11 @@ const HTML = `<!DOCTYPE html>
 </body>
 </html>`
 
-// --- HTTP Server Definition ------------------------------------------------
-const server = http.createServer(async (req, res) => {
-  const urlObj = new URL(req.url, 'http://localhost:3000')
+// --- HTTP Server Definition & Request Handler -----------------------------
+export async function handleRequest(req, res) {
+  const host = req.headers?.host || 'localhost:3000'
+  const protocol = req.headers?.['x-forwarded-proto'] || 'http'
+  const urlObj = new URL(req.url, `${protocol}://${host}`)
   const pathname = urlObj.pathname
 
   if (pathname === '/roles') {
@@ -1923,6 +1941,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/token') {
+    if (!process.env.ASSEMBLYAI_API_KEY) {
+      res.writeHead(500, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: 'ASSEMBLYAI_API_KEY is not configured in Vercel Environment Variables.' }))
+      return
+    }
     const roleKey = urlObj.searchParams.get('role') || 'backend'
     try {
       const agentId = await getRoleAgentId(roleKey)
@@ -1932,7 +1955,7 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       console.error(`Token/Agent resolution failed: ${error.message}`)
       res.writeHead(502, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Token or Agent resolution failed' }))
+      res.end(JSON.stringify({ error: 'Token or Agent resolution failed: ' + error.message }))
     }
     return
   }
@@ -1980,23 +2003,30 @@ const server = http.createServer(async (req, res) => {
 
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
   res.end(HTML)
-})
+}
 
-let port = Number(process.env.PORT) || 3000
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE' && !process.env.PORT && port < 3010) {
-    port += 1
-    server.listen(port)
-    return
-  }
-  throw err
-})
+const server = http.createServer(handleRequest)
 
-server.on('listening', () => {
-  console.log(`================================================================`)
-  console.log(`✨ Readdy.ai Themed Junior Interviewer Server Active`)
-  console.log(`🌐 Web Interface: http://localhost:${port}`)
-  console.log(`================================================================`)
-})
+// Only start standalone listening socket when running locally or on persistent servers (e.g. Render)
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  let port = Number(process.env.PORT) || 3000
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && !process.env.PORT && port < 3010) {
+      port += 1
+      server.listen(port)
+      return
+    }
+    throw err
+  })
 
-server.listen(port)
+  server.on('listening', () => {
+    console.log(`================================================================`)
+    console.log(`✨ Readdy.ai Themed Junior Interviewer Server Active`)
+    console.log(`🌐 Web Interface: http://localhost:${port}`)
+    console.log(`================================================================`)
+  })
+
+  server.listen(port)
+}
+
+export default handleRequest
