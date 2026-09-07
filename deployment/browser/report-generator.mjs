@@ -195,8 +195,8 @@ export function generateInterviewReport({
 
   // Determine actual questions completed (F4)
   const completedCount = questionsAnswered !== null && questionsAnswered !== undefined
-    ? Math.min(10, Math.max(0, Number(questionsAnswered)))
-    : Math.min(10, qaPairs.length)
+    ? Math.min(20, Math.max(0, Number(questionsAnswered)))
+    : Math.min(20, qaPairs.length)
 
   // F6 & F7: Quantitative Answer Depth & Linguistic Metrics
   const totalWords = candidateLines.reduce((sum, l) => sum + l.text.trim().split(/\s+/).filter(Boolean).length, 0)
@@ -226,8 +226,8 @@ export function generateInterviewReport({
   if (reasoningHits >= 3) probScore += 0.8
   else if (reasoningHits >= 1) probScore += 0.4
 
-  if (completedCount >= 9) probScore += 0.8
-  else if (completedCount >= 5) probScore += 0.4
+  if (completedCount >= 18) probScore += 0.8
+  else if (completedCount >= 10) probScore += 0.4
   else probScore -= 0.4
   probScore = Math.min(5.0, Math.max(1.5, Number(probScore.toFixed(1))))
 
@@ -263,13 +263,13 @@ export function generateInterviewReport({
   let recommendation = 'No Hire'
   let decisionBadge = '🔴 NO HIRE'
 
-  if (completedCount < 4) {
+  if (completedCount < 8) {
     recommendation = 'Incomplete Session (Concluded Early)'
     decisionBadge = '⚪ INCOMPLETE'
-  } else if (overallScore >= 4.2 && securityScore >= 4.0 && completedCount >= 8) {
+  } else if (overallScore >= 4.2 && securityScore >= 4.0 && completedCount >= 16) {
     recommendation = 'Strong Hire (Exceptional Junior)'
     decisionBadge = '🟢 STRONG HIRE'
-  } else if (overallScore >= 3.5 && securityScore >= 3.5 && completedCount >= 6) {
+  } else if (overallScore >= 3.5 && securityScore >= 3.5 && completedCount >= 12) {
     recommendation = 'Hire (Solid Junior Candidate)'
     decisionBadge = '🟢 HIRE'
   } else if (overallScore >= 2.8) {
@@ -300,7 +300,7 @@ export function generateInterviewReport({
   if (hasQuestions) {
     strengths.push('Proactive Inquiry: Engaged actively by asking clarifying questions before committing to solutions.')
   }
-  if (completedCount >= 8) {
+  if (completedCount >= 16) {
     strengths.push(`Tenacity: Sustained technical focus across ${completedCount} interview questions.`)
   }
   if (strengths.length === 0) {
@@ -357,7 +357,7 @@ export function generateInterviewReport({
 **Candidate:** ${candidateName}  
 **Date:** ${dateStr}  
 **Session Duration:** ${formattedDuration}  
-**Questions Completed:** ${completedCount} / 10  
+**Questions Completed:** ${completedCount} / 20  
 **Total Dialogue Turns:** ${totalTurns}  
 
 **Interview Scenario:**  
@@ -406,8 +406,8 @@ ${growthAreas.map((g) => `- ${g}`).join('\n')}
 ## 🛡️ Guardrail & Security Audit
 - **Prompt Injection / Jailbreak Attempts:** ${injectionAttempts}
 - **Off-Topic Derailment Attempts:** ${offTopicAttempts}
-- **Questions Completed:** ${completedCount} / 10
-- **Protocol Adherence:** ${completedCount >= 10 ? 'Successfully completed full 10-question technical protocol.' : `Concluded early (${completedCount}/10 answered).`}
+- **Questions Completed:** ${completedCount} / 20
+- **Protocol Adherence:** ${completedCount >= 20 ? 'Successfully completed full 20-question technical protocol.' : `Concluded early (${completedCount}/20 answered).`}
 
 ---
 
