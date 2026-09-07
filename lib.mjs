@@ -1,7 +1,8 @@
 // Shared plumbing for both front doors: loading credentials, reading an
 // agent config, and talking to the AssemblyAI and Twilio APIs.
 
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 const ENV_FILE = new URL('./.env', import.meta.url)
 
@@ -164,26 +165,37 @@ function interpolate(value, file, missing) {
 // wrapper fields, no starter-only keys: what you read is what the API gets.
 export function readAgent(name) {
   let text
-  try {
-    text = readFileSync(new URL(`${name}.jsonc`, AGENT_DIR), 'utf8')
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error
-    console.error(`No agents/${name}.jsonc. Set AGENT to one of: ${listAgents().join(', ')}`)
-    process.exit(1)
+  const candidatePaths = [
+    new URL(`${name}.jsonc`, AGENT_DIR),
+    join(process.cwd(), 'agents', `${name}.jsonc`),
+    join(process.cwd(), 'voice-agent-starter-js', 'agents', `${name}.jsonc`),
+  ]
+
+  let readErr = null
+  for (const p of candidatePaths) {
+    try {
+      text = readFileSync(p, 'utf8')
+      break
+    } catch (err) {
+      readErr = err
+    }
   }
+
+  if (!text) {
+    throw new Error(`No agents/${name}.jsonc found. Searched: ${candidatePaths.map(String).join(', ')}`)
+  }
+
   // An agent is its JSON plus the credentials that JSON names. Keys shared by
   // everything live in the root .env; keys only this agent needs can live
   // beside it in agents/<name>.env, which is gitignored too.
-  loadEnv(new URL(`${name}.env`, AGENT_DIR))
+  try {
+    loadEnv(new URL(`${name}.env`, AGENT_DIR))
+  } catch {}
+
   const missing = new Set()
   const agent = interpolate(parseJsonc(text), name, missing)
   if (missing.size) {
-    console.error(
-      `agents/${name}.jsonc needs ${[...missing].join(', ')}. Add ${
-        missing.size > 1 ? 'them' : 'it'
-      } to .env`
-    )
-    process.exit(1)
+    throw new Error(`agents/${name}.jsonc needs ${[...missing].join(', ')}. Add to .env or environment variables`)
   }
   return agent
 }

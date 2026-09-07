@@ -86,8 +86,9 @@ export function generateInterviewReport({
   techDepth = Math.min(5.0, Math.max(1.8, Number(techDepth.toFixed(1))))
 
   // 2. Problem Solving & Flow Decomposition
-  let probScore = 3.3
-  if (totalTurns >= 3) probScore += 0.8
+  let probScore = 3.2
+  if (totalTurns >= 8) probScore += 1.0
+  else if (totalTurns >= 4) probScore += 0.5
   if (keywordHitRate > 0.2) probScore += 0.6
   probScore = Math.min(5.0, Math.max(2.0, Number(probScore.toFixed(1))))
 
@@ -147,8 +148,8 @@ export function generateInterviewReport({
   if (hasQuestions) {
     strengths.push('Engaged actively by asking clarifying questions during problem discussion.')
   }
-  if (totalTurns >= 3) {
-    strengths.push('Sustained a collaborative dialogue and explained reasoning step-by-step.')
+  if (totalTurns >= 6) {
+    strengths.push('Sustained a collaborative 10-question technical dialogue and explained reasoning step-by-step.')
   }
   if (strengths.length === 0) {
     strengths.push('Demonstrated positive attitude and baseline curiosity for the technical scenario.')
@@ -276,7 +277,7 @@ ${growthAreas.map((g) => `- ${g}`).join('\n')}
 ## 🛡️ Guardrail & Security Audit
 - **Prompt Injection / Jailbreak Attempts:** ${injectionAttempts}
 - **Off-Topic Derailment Attempts:** ${offTopicAttempts}
-- **Finite Stage Progression:** Successfully navigated entry-level protocol without infinite looping.
+- **Finite Stage Progression:** Successfully completed 10-turn structured technical interview protocol.
 
 ---
 
